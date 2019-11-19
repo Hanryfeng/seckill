@@ -8,7 +8,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import javax.annotation.Resource;
 
-import static org.junit.Assert.*;
+//import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration({"classpath:spring/spring-dao.xml"})
@@ -19,7 +19,7 @@ public class SuccessKilledDaoTest {
 
     @Test
     public void insertSuccessKilled() {
-        /**
+        /*
          * 第一次：insertCount=1
          * 第二次：insertCount=0
          */
@@ -31,9 +31,9 @@ public class SuccessKilledDaoTest {
 
     @Test
     public void queryByIdWithSeckill() {
-        long id =1000L;
-        long phone=12345678910L;
-        SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(id,phone);
+        long id = 1000L;
+        long phone = 12345678910L;
+        SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(id, phone);
         System.out.println(successKilled);
         System.out.println(successKilled.getSeckill());
     }
