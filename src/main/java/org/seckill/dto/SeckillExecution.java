@@ -20,6 +20,16 @@ public class SeckillExecution {
     //状态表示
     private String stateInfo;
 
+    @Override
+    public String toString() {
+        return "SeckillExecution{" +
+                "seckillId=" + seckillId +
+                ", successKilled=" + successKilled +
+                ", state=" + state +
+                ", stateInfo='" + stateInfo + '\'' +
+                '}';
+    }
+
     //state为成功秒杀
     public SeckillExecution(long seckillId, SuccessKilled successKilled, SeckillStatEnum seckillStatEnum) {
         this.seckillId = seckillId;
