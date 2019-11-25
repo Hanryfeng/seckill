@@ -79,20 +79,23 @@ public class SeckillController {
         if(phone==null){
             return new SeckillResult<SeckillExecution>(false,"未注册");
         }
-        try {
-            SeckillExecution seckillExecution = seckillService.executeSeckill(seckillId,phone,md5);
-            return new SeckillResult<SeckillExecution>(true,seckillExecution);
-        } catch(RepeatKillException e1){
-            SeckillExecution seckillExecution= new SeckillExecution(seckillId, SeckillStatEnum.REPEAT_KILL);
-            return new SeckillResult<SeckillExecution>(true,seckillExecution);
-        } catch(SeckillCloseException e1){
-            SeckillExecution seckillExecution= new SeckillExecution(seckillId, SeckillStatEnum.END);
-            return new SeckillResult<SeckillExecution>(true,seckillExecution);
-        } catch (SeckillException e) {
-            logger.error(e.getMessage(),e);
-            SeckillExecution seckillExecution= new SeckillExecution(seckillId, SeckillStatEnum.INNER_ERROR);
-            return new SeckillResult<SeckillExecution>(true,seckillExecution);
-        }
+//        try {
+//            SeckillExecution seckillExecution = seckillService.executeSeckill(seckillId,phone,md5);
+//            return new SeckillResult<SeckillExecution>(true,seckillExecution);
+//        } catch(RepeatKillException e1){
+//            SeckillExecution seckillExecution= new SeckillExecution(seckillId, SeckillStatEnum.REPEAT_KILL);
+//            return new SeckillResult<SeckillExecution>(true,seckillExecution);
+//        } catch(SeckillCloseException e1){
+//            SeckillExecution seckillExecution= new SeckillExecution(seckillId, SeckillStatEnum.END);
+//            return new SeckillResult<SeckillExecution>(true,seckillExecution);
+//        } catch (SeckillException e) {
+//            logger.error(e.getMessage(),e);
+//            SeckillExecution seckillExecution= new SeckillExecution(seckillId, SeckillStatEnum.INNER_ERROR);
+//            return new SeckillResult<SeckillExecution>(true,seckillExecution);
+//        }
+        //调用存储过程
+        SeckillExecution seckillExecution = seckillService.executeSeckillProcedure(seckillId,phone,md5);
+        return new SeckillResult<SeckillExecution>(true,seckillExecution);
     }
 
     @RequestMapping(value = "/time/now",method = RequestMethod.GET)
