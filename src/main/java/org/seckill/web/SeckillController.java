@@ -55,7 +55,7 @@ public class SeckillController {
 
     //ajax json
     @RequestMapping(value = "/{seckillId}/exposer",method = RequestMethod.POST,
-                    produces = {"application/json;charset=UTF-8"})
+                    produces = {"application/json;charset=UTF-8"})//produces是为了解决json中的中文乱码问题
     @ResponseBody //把响应的数据封装成JSON
     public SeckillResult<Exposer> exposer(@PathVariable Long seckillId){
         SeckillResult<Exposer> result;

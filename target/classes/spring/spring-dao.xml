@@ -15,13 +15,18 @@
         <property name="user" value="${jdbc.username}"/>
         <property name="password" value="${password}"/>
 
+<!--        &lt;!&ndash; 如果池中数据连接不够时一次增长多少个 &ndash;&gt;-->
+<!--        <property name="acquireIncrement" value="50"/>-->
+<!--        &lt;!&ndash; 初始化数据库连接池时连接的数量 &ndash;&gt;-->
+<!--        <property name="initialPoolSize" value="200"/>-->
+
         <!-- c3p0连接池的私有属性 根据业务场景调整（经验）-->
-        <property name="maxPoolSize" value="30" />
+        <property name="maxPoolSize" value="3000" />
         <property name="minPoolSize" value="10"/>
         <!-- 关闭连接后不自动commit -->
         <property name="autoCommitOnClose" value="false"/>
         <!-- 获取连接超时时间 -->
-        <property name="checkoutTimeout" value="1000"/>
+        <property name="checkoutTimeout" value="60000"/>
         <!-- 当前获取连接失败重试次数 -->
         <property name="acquireRetryAttempts" value="2"/>
     </bean>

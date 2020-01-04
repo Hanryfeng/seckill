@@ -53,11 +53,6 @@ public class SeckillServiceImpl implements SeckillService {
 
     @Override
     public Seckill getSeckillById(long seckillId) {
-        return seckillDao.queryById(seckillId);
-    }
-
-    @Override
-    public Exposer exportSeckillUrl(long seckillId) {
         //优化点：缓存优化,超时的基础上维护一致性
         /**
          * 伪代码
@@ -74,11 +69,20 @@ public class SeckillServiceImpl implements SeckillService {
             //2:访问数据库
             seckill=seckillDao.queryById(seckillId);
             if(seckill==null){
-                return new Exposer(false,seckillId);
+                return null;
             }else{
                 //3:放入redis
                 redisDao.putSeckill(seckill);
             }
+        }
+        return seckill;
+    }
+
+    @Override
+    public Exposer exportSeckillUrl(long seckillId) {
+        Seckill seckill=getSeckillById(seckillId);
+        if(seckill==null){
+            return new Exposer(false,seckillId);
         }
         //系统当前时间
         Date nowTime = new Date();
@@ -148,6 +152,7 @@ public class SeckillServiceImpl implements SeckillService {
         }
     }
 
+    //不需要加Transactional,事务操作由MySQL接手
     @Override
     public SeckillExecution executeSeckillProcedure(long seckillId, long userPhone, String md5){
         if(md5==null || !md5.equals(getMD5(seckillId))){
