@@ -1,5 +1,6 @@
 package org.seckill.web;
 
+import org.seckill.dao.cache.RedisDao;
 import org.seckill.dto.Exposer;
 import org.seckill.dto.SeckillExecution;
 import org.seckill.dto.SeckillResult;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.PostConstruct;
 import java.util.Date;
 import java.util.List;
 
@@ -30,6 +32,20 @@ public class SeckillController {
 
     @Autowired
     private SeckillService seckillService;
+
+//    @Autowired
+//    private RedisDao redisDao;
+//
+//    /**
+//     * 初始化库存数据
+//     */
+//    @PostConstruct
+//    public void initNumber(){
+//        List<Seckill> seckills=seckillService.getSeckillList();
+//        for (Seckill seckill:seckills) {
+//            redisDao.initNumber(seckill.getSeckillId(),seckill.getNumber());
+//        }
+//    }
 
     @RequestMapping(value = "/list",method = RequestMethod.GET)
     public String list(Model model){
@@ -93,8 +109,20 @@ public class SeckillController {
 //            SeckillExecution seckillExecution= new SeckillExecution(seckillId, SeckillStatEnum.INNER_ERROR);
 //            return new SeckillResult<SeckillExecution>(true,seckillExecution);
 //        }
+
+
+//        Long number=redisDao.decrNumber(seckillId+"_number");
+//
+//        if(number<0){
+//            redisDao.incrNumber(seckillId+"_number");
+//            return new SeckillResult<SeckillExecution>(true,new SeckillExecution(seckillId, SeckillStatEnum.END));
+//        }
+
         //调用存储过程
         SeckillExecution seckillExecution = seckillService.executeSeckillProcedure(seckillId,phone,md5);
+//        if(seckillExecution.getState()!=1){
+//            redisDao.incrNumber(seckillId+"_number");
+//        }
         return new SeckillResult<SeckillExecution>(true,seckillExecution);
     }
 

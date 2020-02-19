@@ -23,6 +23,50 @@ public class RedisDao {
         jedisPool = new JedisPool(ip,port);
     }
 
+    public void initNumber(long seckillId,int number){
+        try {
+            Jedis jedis=jedisPool.getResource();
+            try {
+                String key=seckillId+"_number";
+                jedis.set(key,number+"");
+            } finally {
+                jedis.close();
+            }
+        } catch (Exception e) {
+            logger.error(e.getMessage(),e);
+        }
+    }
+
+    public Long decrNumber(String key){
+        try {
+            Jedis jedis=jedisPool.getResource();
+            try {
+                Long number=jedis.decr(key);
+                return number;
+            } finally {
+                jedis.close();
+            }
+        } catch (Exception e) {
+            logger.error(e.getMessage(),e);
+        }
+        return null;
+    }
+
+    public Long incrNumber(String key){
+        try {
+            Jedis jedis=jedisPool.getResource();
+            try {
+                Long number=jedis.incr(key);
+                return number;
+            } finally {
+                jedis.close();
+            }
+        } catch (Exception e) {
+            logger.error(e.getMessage(),e);
+        }
+        return null;
+    }
+
     private RuntimeSchema<Seckill> schema= RuntimeSchema.createFrom(Seckill.class);
 
     public Seckill getSeckill(long seckillId){

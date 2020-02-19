@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.PostConstruct;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +46,18 @@ public class SeckillServiceImpl implements SeckillService {
 
     @Autowired
     private RedisDao redisDao;
+
+    /**
+     * @PostConstruct 表示在所有东西初始化后执行的构造方法
+     * 这里是把每件商品的ID和库存作为键值对存入Redis中
+     */
+    @PostConstruct
+    public void initNumber(){
+        List<Seckill> seckills=seckillDao.queryAll(0,4);
+        for (Seckill seckill:seckills) {
+            redisDao.initNumber(seckill.getSeckillId(),seckill.getNumber());
+        }
+    }
 
     @Override
     public List<Seckill> getSeckillList() {
@@ -105,14 +118,15 @@ public class SeckillServiceImpl implements SeckillService {
         return md5;
     }
 
-    @Override
-    @Transactional
+
     /**
      * 使用注解控制事务方法的优点：
      * 1.开发团队达成一致约定，明确标注事务方法的编程风格
      * 2.保证事务方法的执行时间尽可能短，不要穿插其他网络操作RPC/HTTP请求或者剥离到事务方法外部
      * 3.不是所有的方法都需要事务，如：只有一条修改操作，只读操作不需要事务控制
      */
+    @Override
+    @Transactional
     public SeckillExecution executeSeckill(long seckillId, long userPhone, String md5) throws SeckillException, RepeatKillException, SeckillCloseException {
         if(md5==null || !md5.equals(getMD5(seckillId))){
             throw new SeckillException("seckill data rewrite");
@@ -158,6 +172,14 @@ public class SeckillServiceImpl implements SeckillService {
         if(md5==null || !md5.equals(getMD5(seckillId))){
             return new SeckillExecution(seckillId,SeckillStatEnum.DATE_REWRITE);
         }
+
+        Long number=redisDao.decrNumber(seckillId+"_number");
+
+        if(number!=null&&number<0){
+            redisDao.incrNumber(seckillId+"_number");
+            return new SeckillExecution(seckillId, SeckillStatEnum.END);
+        }
+
         Date killTime=new Date();
         Map<String,Object> map = new HashMap<String, Object>();
         map.put("seckillId",seckillId);
@@ -187,6 +209,14 @@ public class SeckillServiceImpl implements SeckillService {
             }
         }
         catch(Exception e){
+            /**
+             * 这里容易出现bug：
+             * 如果对数据库执行秒杀失败，则库存没有发生变化
+             * 因此，对应的Redis缓存（JVM缓存）的数据都应该进行回退！
+             */
+            if(number!=null){
+                redisDao.incrNumber(seckillId+"_number");
+            }
             logger.error(e.getMessage(),e);
             return new SeckillExecution(seckillId,SeckillStatEnum.INNER_ERROR);
         }
