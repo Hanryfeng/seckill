@@ -50,4 +50,12 @@ public class SeckillDaoTest {
         int updateCount = seckillDao.reduceNumber(id, killTime);
         System.out.println("updateCount:" + updateCount);
     }
+
+    @Test
+    public void reduceStock() {
+        Date killTime = new Date();
+        long id = 1000L;
+        int updateCount = seckillDao.reduceStock(id);
+        System.out.println("updateCount:" + updateCount);
+    }
 }

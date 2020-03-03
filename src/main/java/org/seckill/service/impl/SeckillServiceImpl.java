@@ -12,6 +12,7 @@ import org.seckill.enums.SeckillStatEnum;
 import org.seckill.exception.RepeatKillException;
 import org.seckill.exception.SeckillCloseException;
 import org.seckill.exception.SeckillException;
+import org.seckill.mq.SeckillProducer;
 import org.seckill.service.SeckillService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author hengjian.feng
@@ -46,6 +48,15 @@ public class SeckillServiceImpl implements SeckillService {
 
     @Autowired
     private RedisDao redisDao;
+
+    @Autowired
+    private SeckillProducer seckillProducer;
+
+    /**
+     * productSoldOutMap（JVM缓存）作为商品秒杀结束的标志
+     * 因为是高并发的场景，所以需要用到并发的锁
+     */
+    private ConcurrentHashMap<Long,Boolean> productSoldOutMap=new ConcurrentHashMap<>();
 
     /**
      * @PostConstruct 表示在所有东西初始化后执行的构造方法
@@ -131,10 +142,28 @@ public class SeckillServiceImpl implements SeckillService {
         if(md5==null || !md5.equals(getMD5(seckillId))){
             throw new SeckillException("seckill data rewrite");
         }
+
+        //productSoldOutMap作为商品秒杀结束的标志，如果存在，则表示秒杀已结束
+        if(productSoldOutMap.get(seckillId)!=null){
+            throw new SeckillCloseException("seckill is closed");
+        }
+
+        //对redis中的库存数减一，“获取减一之后”的库存数
+        Long number=redisDao.decrNumber(seckillId+"_number");
+
+        /**
+         * 阻挡多线程直接操作数据库的关键
+         */
+        if(number!=null&&number<0){
+            productSoldOutMap.put(seckillId,true);
+            redisDao.incrNumber(seckillId+"_number");
+            throw new SeckillCloseException("seckill is closed");
+        }
+
         //执行秒杀逻辑：减库存+记录购买行为
-        Date nowTime = new Date();
+        //Date nowTime = new Date();
         //减库存
-        try {
+//        try {
             //并发优化：先插入购买明细，再进行update减库存（update会获取行级锁）
             //降低行级锁的持有时间
             //记录购买行为
@@ -145,25 +174,43 @@ public class SeckillServiceImpl implements SeckillService {
                 throw new RepeatKillException("seckill repeated");
             }else{
                 //减库存，热点商品竞争
-                int reduceCount = seckillDao.reduceNumber(seckillId,nowTime);
-                if(reduceCount<=0){
-                    //没有更新到记录，秒杀结束，rollback
-                    throw new SeckillCloseException("seckill is closed");
-                }else{
-                    //秒杀成功，commit
+//                int reduceCount = seckillDao.reduceNumber(seckillId,nowTime);
+                try {
+//                    seckillDao.reduceStock(seckillId);
+                    seckillProducer.send(seckillId);
                     SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(seckillId,userPhone);
                     return new SeckillExecution(seckillId,successKilled, SeckillStatEnum.SUCCESS);
+                } catch (Exception e) {
+                    if(productSoldOutMap.get(seckillId)!=null){
+                        productSoldOutMap.remove(seckillId);
+                    }
+                    if(number!=null){
+                        redisDao.incrNumber(seckillId+"_number");
+                    }
+                    logger.error(e.getMessage(),e);
+                    //所有编译期异常 转化为运行期异常
+                    throw new SeckillException("seckill inner error:"+e.getMessage());
                 }
+//                if(reduceCount<=0){
+//                    //没有更新到记录，秒杀结束，rollback
+//                    throw new SeckillCloseException("seckill is closed");
+//                }else{
+//                    //秒杀成功，commit
+//                    SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(seckillId,userPhone);
+//                    return new SeckillExecution(seckillId,successKilled, SeckillStatEnum.SUCCESS);
+//                }
             }
-        } catch (SeckillCloseException e1) {
-            throw e1;
-        } catch (RepeatKillException e2) {
-            throw e2;
-        } catch (Exception e){
-            logger.error(e.getMessage(),e);
-            //所有编译期异常 转化为运行期异常
-            throw new SeckillException("seckill inner error:"+e.getMessage());
-        }
+//        }
+//        catch (SeckillCloseException e1) {
+//            throw e1;
+//        }
+//        catch (RepeatKillException e2) {
+//            throw e2;
+//        } catch (Exception e){
+//            logger.error(e.getMessage(),e);
+//            //所有编译期异常 转化为运行期异常
+//            throw new SeckillException("seckill inner error:"+e.getMessage());
+//        }
     }
 
     //不需要加Transactional,事务操作由MySQL接手
@@ -173,9 +220,19 @@ public class SeckillServiceImpl implements SeckillService {
             return new SeckillExecution(seckillId,SeckillStatEnum.DATE_REWRITE);
         }
 
+        //productSoldOutMap作为商品秒杀结束的标志，如果存在，则表示秒杀已结束
+        if(productSoldOutMap.get(seckillId)!=null){
+            return new SeckillExecution(seckillId, SeckillStatEnum.END);
+        }
+
+        //对redis中的库存数减一，“获取减一之后”的库存数
         Long number=redisDao.decrNumber(seckillId+"_number");
 
+        /**
+         * 阻挡多线程直接操作数据库的关键
+         */
         if(number!=null&&number<0){
+            productSoldOutMap.put(seckillId,true);
             redisDao.incrNumber(seckillId+"_number");
             return new SeckillExecution(seckillId, SeckillStatEnum.END);
         }
@@ -196,10 +253,11 @@ public class SeckillServiceImpl implements SeckillService {
          *         我们也就不需要在这个方法里抛出异常来让Spring帮我们回滚了。
          */
         try{
-            seckillDao.killByProcedure(map);
+            //seckillDao.killByProcedure(map);
             //在pom.xml里面引入依赖commons-collections,使用MapUtils
             //int result=(Integer) map.get("result");
-            Integer result = MapUtils.getInteger(map, "result", -2);
+            //Integer result = MapUtils.getInteger(map, "result", -2);
+            Integer result= seckillProducer.sendAndReceive(map);
             if (result == 1) {
                 SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(seckillId, userPhone);
                 return new SeckillExecution(seckillId, successKilled, SeckillStatEnum.SUCCESS);
@@ -214,6 +272,9 @@ public class SeckillServiceImpl implements SeckillService {
              * 如果对数据库执行秒杀失败，则库存没有发生变化
              * 因此，对应的Redis缓存（JVM缓存）的数据都应该进行回退！
              */
+            if(productSoldOutMap.get(seckillId)!=null){
+                productSoldOutMap.remove(seckillId);
+            }
             if(number!=null){
                 redisDao.incrNumber(seckillId+"_number");
             }

@@ -8,6 +8,14 @@ import java.util.List;
 import java.util.Map;
 
 public interface SeckillDao {
+
+    /**
+     * 减库存
+     * @param seckillId
+     * @return 如果影响行数>1,表示更新的记录行数
+     */
+    int reduceStock(@Param("seckillId") long seckillId);
+
     /**
      * 减库存
      * @param seckillId

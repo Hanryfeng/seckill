@@ -4,6 +4,15 @@
 <mapper namespace="org.seckill.dao.SeckillDao">
     <!-- 目的：为dao接口方法提供sql语句配置 -->
 
+    <update id="reduceStock">
+        <!-- 具体的sql -->
+        update
+        seckill
+        set
+        number = number -1
+        where seckill_id = #{seckillId};
+    </update>
+
     <update id="reduceNumber">
         <!-- 具体的sql -->
         update
